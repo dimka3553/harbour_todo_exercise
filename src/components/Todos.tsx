@@ -1,9 +1,11 @@
-"use client";
+'use client';
 
 import { useState } from 'react';
 import { Heart } from '@/components/icons/Heart';
 import { Close } from '@/components/icons/Close';
 import { AddTodo } from '@/components/AddTodo';
+import { gql } from 'graphql-request';
+import { client } from '@/lib/client';
 
 export type Todo = {
   id: number;
@@ -19,16 +21,70 @@ type TodosProps = {
 export const Todos = ({ list = [], listId }: TodosProps) => {
   const [todos, setTodos] = useState<Todo[]>(list);
 
-  const onAddHandler = (desc: string) => {
+  const onAddHandler = async (desc: string) => {
     console.log(`Add todo ${desc}`);
+    const ADD_TODO_QUERY = gql`
+      mutation Mutation($listId: Int!, $desc: String!) {
+        addTODO(listId: $listId, desc: $desc) {
+          desc
+          finished
+          id
+        }
+      }
+    `;
+
+    const { addTODO } = await client.request<{ addTODO: Todo }>(
+      ADD_TODO_QUERY,
+      {
+        listId,
+        desc,
+      },
+    );
+
+    setTodos([...todos, addTODO]);
   };
 
   const onRemoveHandler = (id: number) => {
     console.log(`Remove todo ${id}`);
+
+    const REMOVE_TODO_QUERY = gql`
+      mutation Mutation($removeTodoId: Int!, $listId: Int!) {
+        removeTODO(id: $removeTodoId, listId: $listId)
+      }
+    `;
+    client.request(REMOVE_TODO_QUERY, {
+      removeTodoId: id,
+      listId,
+    });
+
+    setTodos(todos.filter((item) => item.id !== id));
   };
 
   const onFinishHandler = (id: number) => {
     console.log(`Mark todo ${id} as finished`);
+
+    const FINISH_TODO_QUERY = gql`
+      mutation Mutation($finishTodoId: Int!, $listId: Int!) {
+        finishTODO(id: $finishTodoId, listId: $listId) {
+          id
+          finished
+          desc
+        }
+      }
+    `;
+    client.request(FINISH_TODO_QUERY, {
+      finishTodoId: id,
+      listId,
+    });
+
+    setTodos(
+      todos.map((item) => {
+        if (item.id === id) {
+          return { ...item, finished: true };
+        }
+        return item;
+      }),
+    );
   };
 
   return (
